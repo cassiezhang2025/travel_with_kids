@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>带娃出行指南</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#FAFAF7;--bg2:#F2F1EC;--bg3:#E8E6DF;
+  --card:#FFFFFF;--border:#E0DDD4;--border2:#CBC8BE;
+  --text:#1A1916;--text2:#6B6860;--text3:#A09D96;
+  --green:#2A7A5A;--green-bg:#EBF5EF;--green-t:#1A5C3E;
+  --blue:#2563A8;--blue-bg:#EBF2FB;--blue-t:#1A4A8A;
+  --amber:#B85C00;--amber-bg:#FEF3E2;--amber-t:#8A4200;
+  --purple:#6B3FA0;--purple-bg:#F3EEFB;--purple-t:#4A2878;
+  --red:#B83232;--red-bg:#FDEAEA;--red-t:#8A2020;
+  --teal:#1A7A6E;--teal-bg:#E8F5F3;--teal-t:#115A52;
+  --gray-t:#4A4844;
+}
+html,body{height:100%;font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+header{
+  height:54px;background:var(--card);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 18px;gap:14px;position:relative;z-index:100;
+}
+.logo{
+  font-family:'Noto Serif SC',serif;font-size:16px;font-weight:600;
+  color:var(--text);white-space:nowrap;display:flex;align-items:center;gap:8px;
+}
+.logo-dot{
+  width:26px;height:26px;border-radius:50%;background:var(--green);
+  display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;
+}
+.city-scroller{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;flex:1;}
+.city-scroller::-webkit-scrollbar{display:none;}
+.city-btn{
+  padding:5px 15px;border-radius:999px;border:1px solid var(--border2);
+  font-size:13px;color:var(--text2);cursor:pointer;white-space:nowrap;
+  background:transparent;font-family:'Noto Sans SC',sans-serif;transition:all .15s;
+}
+.city-btn:hover{border-color:var(--green);color:var(--green);}
+.city-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+
+.app{display:flex;height:calc(100vh - 54px);}
+
+.sidebar{
+  width:295px;min-width:295px;background:var(--card);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;
+}
+.sidebar-head{padding:12px 14px 10px;border-bottom:1px solid var(--border);}
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;}
+.chip{
+  padding:3px 11px;border-radius:999px;border:1px solid var(--border);
+  font-size:11px;color:var(--text2);cursor:pointer;background:transparent;
+  font-family:'Noto Sans SC',sans-serif;transition:all .12s;
+}
+.count{font-size:11px;color:var(--text3);}
+
+.list{flex:1;overflow-y:auto;}
+.item{
+  padding:11px 14px;border-bottom:1px solid var(--border);
+  cursor:pointer;transition:background .1s;display:flex;flex-direction:column;gap:3px;
+}
+.item:hover{background:var(--bg);}
+.item.sel{background:var(--green-bg);}
+.item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.iname{font-size:13px;font-weight:500;color:var(--text);line-height:1.4;}
+.inote{font-size:11px;color:var(--text3);line-height:1.4;}
+.tag{font-size:10px;padding:2px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0;font-weight:500;}
+
+.t-out{background:var(--green-bg);color:var(--green-t);}
+.t-in {background:var(--blue-bg);color:var(--blue-t);}
+.t-eat{background:var(--amber-bg);color:var(--amber-t);}
+.t-mus{background:var(--purple-bg);color:var(--purple-t);}
+.t-bk {background:var(--teal-bg);color:var(--teal-t);}
+.t-zoo{background:var(--red-bg);color:var(--red-t);}
+.t-mal{background:var(--bg3);color:var(--gray-t);}
+
+.map-wrap{flex:1;position:relative;}
+#map{width:100%;height:100%;}
+.legend{
+  position:absolute;bottom:26px;right:12px;z-index:999;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:9px 13px;
+  display:flex;flex-direction:column;gap:6px;pointer-events:none;
+}
+.leg{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text2);}
+.ldot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+
+.pu{min-width:160px;font-family:'Noto Sans SC',sans-serif;}
+.pu-name{font-size:13px;font-weight:500;color:#1A1916;margin-bottom:2px;}
+.pu-cat{font-size:11px;color:#999;margin-bottom:6px;}
+.pu-note{font-size:12px;color:#555;margin-bottom:7px;line-height:1.5;}
+.pu-nav{
+  display:inline-block;font-size:12px;color:#fff;
+  background:#2A7A5A;padding:4px 12px;border-radius:6px;text-decoration:none;
+}
+
+@media(max-width:640px){
+  .app{flex-direction:column;}
+  .sidebar{width:100%;min-width:unset;height:44vh;border-right:none;border-bottom:1px solid var(--border);}
+  .map-wrap{flex:1;min-height:160px;}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-dot">娃</div>带娃出行指南</div>
+  <div class="city-scroller" id="cityScroller"></div>
+</header>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <div class="chips" id="chips"></div>
+      <div class="count" id="count"></div>
+    </div>
+    <div class="list" id="list"></div>
+  </div>
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── DATA ──────────────────────────────────────────────
+// 要加新城市：复制一段，改城市名、center、zoom、places
+// 要加新地点：places 数组里加一行 {name, cat, lat, lng, note}
+const DB = {
+  北京:{
+    center:[39.95,116.38],zoom:12,
+    places:[
+      {name:"华熙live 五棵松万达",     cat:"商场",     lat:39.9075,lng:116.279, note:""},
+      {name:"北京城市图书馆少年儿童馆",  cat:"书店",     lat:39.9022,lng:116.7405,note:""},
+      {name:"天文馆",                  cat:"博物馆",    lat:39.9435,lng:116.3394,note:""},
+      {name:"中国科学技术馆",           cat:"博物馆",    lat:40.0123,lng:116.3975,note:""},
+      {name:"中国航天博物馆",           cat:"博物馆",    lat:40.074, lng:116.2405,note:""},
+      {name:"奈尔宝",                  cat:"室内游乐园", lat:39.9245,lng:116.5183,note:""},
+      {name:"北京野生动物园",           cat:"动物园",    lat:39.5023,lng:116.3287,note:""},
+      {name:"国家自然博物馆",           cat:"博物馆",    lat:39.8896,lng:116.4065,note:""},
+      {name:"森幻π世界",               cat:"室外游乐园", lat:39.985, lng:116.305, note:""},
+      {name:"宋庆龄体验中心",           cat:"博物馆",    lat:39.9722,lng:116.3883,note:""},
+      {name:"全聚德烤鸭",              cat:"吃饭",      lat:39.9152,lng:116.404, note:""},
+      {name:"四季民福烤鸭",            cat:"吃饭",      lat:39.9163,lng:116.3972,note:""},
+      {name:"王府井书店",              cat:"书店",      lat:39.9145,lng:116.4044,note:""},
+      {name:"北京时代美术馆",          cat:"博物馆",    lat:39.9076,lng:116.2792,note:""},
+      {name:"乐高旗舰店王府井",        cat:"室内游乐园", lat:39.9143,lng:116.4046,note:""},
+      {name:"梵高星空艺术馆",          cat:"室内游乐园", lat:39.914, lng:116.404, note:""},
+      {name:"王府井图书大厦",          cat:"书店",      lat:39.9148,lng:116.4042,note:""},
+      {name:"北京公交馆",             cat:"博物馆",    lat:39.9385,lng:116.35,  note:""},
+      {name:"meland",                cat:"室内游乐园", lat:39.924, lng:116.518, note:""},
+      {name:"中国科技馆儿童乐园",      cat:"室内游乐园", lat:40.0125,lng:116.3977,note:""},
+    ]
+  },
+  青岛:{
+    center:[36.09,120.38],zoom:12,
+    places:[
+      {name:"青岛藤椒山生态园西南门",   cat:"室外游乐园", lat:36.205, lng:120.531, note:""},
+      {name:"浮山幸福谷",              cat:"室外游乐园", lat:36.0721,lng:120.4187,note:""},
+      {name:"青岛滨海国际中心",         cat:"室外游乐园", lat:36.059, lng:120.331, note:""},
+      {name:"张村河南岸儿童天地游乐场", cat:"室外游乐园", lat:36.101, lng:120.463, note:""},
+      {name:"崂山丽达商场（秦岭路店）", cat:"室外游乐园", lat:36.109, lng:120.472, note:""},
+      {name:"李沧双峰山公园",          cat:"室外游乐园", lat:36.1612,lng:120.4073,note:""},
+      {name:"深圳路体育公园",          cat:"室外游乐园", lat:36.134, lng:120.415, note:""},
+      {name:"平行世界公园（崂山区）",   cat:"室外游乐园", lat:36.108, lng:120.562, note:""},
+      {name:"森动探险儿童乐园",        cat:"室外游乐园", lat:36.066, lng:120.387, note:""},
+      {name:"百果山森林乐园",          cat:"室外游乐园", lat:36.085, lng:120.442, note:""},
+      {name:"花科子山公园",           cat:"室外游乐园", lat:36.105, lng:120.398, note:""},
+      {name:"青岛九力儿童乐园",        cat:"室内游乐园", lat:36.088, lng:120.386, note:""},
+      {name:"市南区中山公园欢乐丛林",   cat:"室内游乐园", lat:36.066, lng:120.372, note:""},
+      {name:"金库文博馆",             cat:"室内游乐园", lat:36.083, lng:120.369, note:""},
+      {name:"等俺船靠岸 老船蒸鲜",     cat:"吃饭",      lat:36.078, lng:120.38,  note:""},
+      {name:"烤拉拉自助餐厅",         cat:"吃饭",      lat:36.088, lng:120.395, note:""},
+      {name:"双合园（全家福水饺老店）", cat:"吃饭",      lat:36.076, lng:120.382, note:""},
+      {name:"巧媳妇海鲜烧烤",         cat:"吃饭",      lat:36.081, lng:120.377, note:""},
+      {name:"肥三土菜馆（五四广场）",  cat:"吃饭",      lat:36.071, lng:120.382, note:""},
+      {name:"刘大厨江西小炒",         cat:"吃饭",      lat:36.087, lng:120.384, note:""},
+      {name:"七星椒",                cat:"吃饭",      lat:36.092, lng:120.386, note:""},
+      {name:"清真回味餐厅",           cat:"吃饭",      lat:36.085, lng:120.378, note:""},
+      {name:"华春菜馆",              cat:"吃饭",      lat:36.08,  lng:120.383, note:""},
+      {name:"十三不靠（榴莲奶酪）",   cat:"吃饭",      lat:36.094, lng:120.39,  note:""},
+      {name:"百步拉面",              cat:"吃饭",      lat:36.09,  lng:120.38,  note:""},
+      {name:"鲜虾锅贴",              cat:"吃饭",      lat:36.086, lng:120.376, note:""},
+      {name:"海肠捞饭",              cat:"吃饭",      lat:36.084, lng:120.385, note:""},
+      {name:"旺角海鲜啤酒屋",        cat:"吃饭",      lat:36.076, lng:120.366, note:""},
+      {name:"麦凯乐后面的一条街",     cat:"吃饭",      lat:36.087, lng:120.392, note:""},
+      {name:"宴小馆",               cat:"吃饭",      lat:36.082, lng:120.387, note:""},
+      {name:"典餐港式打边炉",        cat:"吃饭",      lat:36.0795,lng:120.3845,note:""},
+      {name:"道口香老铜锅涮肉",      cat:"吃饭",      lat:36.091, lng:120.381, note:""},
+      {name:"海底捞",               cat:"吃饭",      lat:36.082, lng:120.375, note:""},
+      {name:"台东夜市",             cat:"吃饭",      lat:36.093, lng:120.387, note:""},
+    ]
+  }
+};
+
+// ── CAT CONFIG ─────────────────────────────────────────
+const CATS = {
+  "室外游乐园":{color:"#2A7A5A",tc:"t-out",label:"室外"},
+  "室内游乐园":{color:"#2563A8",tc:"t-in", label:"室内"},
+  "吃饭":      {color:"#B85C00",tc:"t-eat",label:"餐厅"},
+  "博物馆":    {color:"#6B3FA0",tc:"t-mus",label:"博物馆"},
+  "书店":      {color:"#1A7A6E",tc:"t-bk", label:"书店"},
+  "动物园":    {color:"#B83232",tc:"t-zoo",label:"动物园"},
+  "商场":      {color:"#6B6860",tc:"t-mal",label:"商场"},
+};
+function cm(cat){return CATS[cat]||{color:"#888",tc:"t-mal",label:cat};}
+
+// ── STATE ──────────────────────────────────────────────
+let city=Object.keys(DB)[0], filt="全部", sel=null, mks=[];
+
+const map=L.map("map",{zoomControl:true});
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+  attribution:"© OpenStreetMap",maxZoom:19
+}).addTo(map);
+
+function mkIcon(cat){
+  const c=cm(cat).color;
+  return L.divIcon({
+    className:"",
+    html:`<div style="width:13px;height:13px;border-radius:50%;background:${c};border:2.5px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.28);"></div>`,
+    iconSize:[13,13],iconAnchor:[6,6],popupAnchor:[0,-10]
+  });
+}
+
+function fp(){
+  return DB[city].places
+    .map((p,i)=>({...p,oi:i}))
+    .filter(p=>filt==="全部"||p.cat===filt);
+}
+
+function cityCats(){
+  return [...new Set(DB[city].places.map(p=>p.cat))];
+}
+
+function renderCities(){
+  document.getElementById("cityScroller").innerHTML=
+    Object.keys(DB).map(c=>
+      `<button class="city-btn${c===city?" active":""}" onclick="switchCity('${c}')">${c}</button>`
+    ).join("");
+}
+
+function renderChips(){
+  const cs=cityCats();
+  const all=`<button class="chip${filt==="全部"?' style="background:var(--green);color:#fff;border-color:var(--green)"':''}" onclick="setFilt('全部')">全部</button>`;
+  const rest=cs.map(c=>{
+    const m=cm(c);
+    const on=filt===c;
+    const style=on?` style="background:${m.color}20;color:${m.color};border-color:${m.color}"`:"";
+    return `<button class="chip"${style} onclick="setFilt('${c}')">${m.label}</button>`;
+  });
+  document.getElementById("chips").innerHTML=[all,...rest].join("");
+}
+
+function renderLegend(){
+  document.getElementById("legend").innerHTML=cityCats().map(c=>{
+    const m=cm(c);
+    return `<div class="leg"><div class="ldot" style="background:${m.color}"></div>${m.label}</div>`;
+  }).join("");
+}
+
+function renderMarkers(){
+  mks.forEach(m=>m.m.remove());mks=[];
+  fp().forEach(p=>{
+    const mk=L.marker([p.lat,p.lng],{icon:mkIcon(p.cat)}).addTo(map);
+    const note=p.note?`<div class="pu-note">${p.note}</div>`:"";
+    mk.bindPopup(`<div class="pu">
+      <div class="pu-name">${p.name}</div>
+      <div class="pu-cat">${p.cat}</div>${note}
+      <a class="pu-nav" href="https://maps.google.com/?q=${p.lat},${p.lng}" target="_blank">导航前往 →</a>
+    </div>`,{maxWidth:220});
+    mk.on("click",()=>pick(p.oi));
+    mks.push({m:mk,oi:p.oi});
+  });
+}
+
+function renderList(){
+  const f=fp();
+  document.getElementById("count").textContent=`共 ${f.length} 个地点`;
+  document.getElementById("list").innerHTML=f.map((p,fi)=>{
+    const m=cm(p.cat);
+    return `<div class="item${p.oi===sel?" sel":""}" onclick="pick(${p.oi})" data-fi="${fi}">
+      <div class="item-top">
+        <span class="iname">${p.name}</span>
+        <span class="tag ${m.tc}">${m.label}</span>
+      </div>
+      ${p.note?`<div class="inote">${p.note}</div>`:""}
+    </div>`;
+  }).join("");
+}
+
+function pick(oi){
+  sel=oi;
+  const p=DB[city].places[oi];
+  map.setView([p.lat,p.lng],16,{animate:true});
+  const mk=mks.find(m=>m.oi===oi);
+  if(mk)mk.m.openPopup();
+  renderList();
+  const f=fp(),fi=f.findIndex(p=>p.oi===oi);
+  const items=document.querySelectorAll(".item");
+  if(fi>=0&&items[fi])items[fi].scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+function setFilt(f){filt=f;sel=null;renderChips();renderMarkers();renderList();}
+
+function switchCity(c){
+  city=c;filt="全部";sel=null;
+  const {center,zoom}=DB[c];
+  map.setView(center,zoom,{animate:true});
+  renderCities();renderChips();renderLegend();renderMarkers();renderList();
+}
+
+// init
+const {center,zoom}=DB[city];
+map.setView(center,zoom);
+renderCities();renderChips();renderLegend();renderMarkers();renderList();
+</script>
+</body>
+</html>

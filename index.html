@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>带娃出行指南</title>
+<title>带娃出行指南 · Kids Travel Guide</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -21,14 +21,25 @@
 }
 html,body{height:100%;font-family:'PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
 
-header{height:54px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:100;position:relative;}
-.logo{font-size:16px;font-weight:600;white-space:nowrap;display:flex;align-items:center;gap:8px;}
+header{height:54px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;z-index:100;position:relative;}
+.logo{font-size:15px;font-weight:600;white-space:nowrap;display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .logo-dot{width:26px;height:26px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;flex-shrink:0;}
 .city-row{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;flex:1;}
 .city-row::-webkit-scrollbar{display:none;}
 .cbtn{padding:5px 14px;border-radius:999px;border:1px solid var(--border2);font-size:13px;color:var(--text2);cursor:pointer;white-space:nowrap;background:transparent;transition:all .15s;}
 .cbtn:hover{border-color:var(--green);color:var(--green);}
 .cbtn.active{background:var(--green);color:#fff;border-color:var(--green);}
+
+/* 语言切换按钮 */
+.lang-btn{
+  padding:5px 12px;border-radius:999px;
+  border:1px solid var(--border2);
+  font-size:12px;color:var(--text2);
+  cursor:pointer;white-space:nowrap;
+  background:transparent;flex-shrink:0;
+  transition:all .15s;font-weight:500;
+}
+.lang-btn:hover{border-color:var(--green);color:var(--green);}
 
 .app{display:flex;height:calc(100vh - 54px);}
 .sidebar{width:290px;min-width:290px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
@@ -51,7 +62,6 @@ header{height:54px;background:var(--card);border-bottom:1px solid var(--border);
 .lr{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text2);}
 .ld{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 
-/* loading */
 .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text3);}
 .spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -67,13 +77,15 @@ header{height:54px;background:var(--card);border-bottom:1px solid var(--border);
   .app{flex-direction:column;}
   .sidebar{width:100%;min-width:unset;height:44vh;border-right:none;border-bottom:1px solid var(--border);}
   .map-wrap{flex:1;min-height:160px;}
+  .logo span{display:none;}
 }
 </style>
 </head>
 <body>
 <header>
-  <div class="logo"><div class="logo-dot">娃</div>带娃出行指南</div>
+  <div class="logo"><div class="logo-dot">娃</div><span id="logo-text">带娃出行指南</span></div>
   <div class="city-row" id="cr"></div>
+  <button class="lang-btn" id="langBtn" onclick="toggleLang()">English</button>
 </header>
 <div class="app">
   <div class="sidebar">
@@ -82,7 +94,7 @@ header{height:54px;background:var(--card);border-bottom:1px solid var(--border);
       <div class="cnt" id="cnt"></div>
     </div>
     <div class="lst" id="lst">
-      <div class="loading"><div class="spinner"></div><span>加载中...</span></div>
+      <div class="loading"><div class="spinner"></div><span id="loading-text">加载中...</span></div>
     </div>
   </div>
   <div class="map-wrap">
@@ -94,35 +106,62 @@ header{height:54px;background:var(--card);border-bottom:1px solid var(--border);
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ── 配置 ──────────────────────────────────────────────
-// Google Sheets ID
 const SHEET_ID = '1tBAAD10BIABfcK3CsH0BQsxCZTCH8QJuShvMCzIG3ls';
 
-// 城市配置：name = Sheet tab名，center/zoom = 地图初始位置
 const CITY_CONFIG = [
-  { name:'北京', gid:'0',        center:[39.95,116.38], zoom:11 },
-  { name:'青岛', gid:'1182038936', center:[36.09,120.38], zoom:11 },
-  // 加新城市：复制上面一行，改名字、gid（从sheet链接里找）、center、zoom
+  { name:'北京', name_en:'Beijing', gid:'0',           center:[39.95,116.38], zoom:11 },
+  { name:'青岛', name_en:'Qingdao', gid:'1182038936',  center:[36.09,120.38], zoom:11 },
+  // 加新城市：{ name:'城市', name_en:'City', gid:'xxx', center:[lat,lng], zoom:11 }
 ];
 
-// 分类颜色配置
+// 分类中英文配置
 const CM = {
-  '室外游乐园':{c:'#2A7A5A',bg:'#EBF5EF',tc:'#1A5C3E',lb:'室外'},
-  '室内游乐园':{c:'#2563A8',bg:'#EBF2FB',tc:'#1A4A8A',lb:'室内'},
-  '吃饭':      {c:'#B85C00',bg:'#FEF3E2',tc:'#8A4200',lb:'餐厅'},
-  '博物馆':    {c:'#6B3FA0',bg:'#F3EEFB',tc:'#4A2878',lb:'博物馆'},
-  '书店':      {c:'#1A7A6E',bg:'#E8F5F3',tc:'#115A52',lb:'书店'},
-  '动物园':    {c:'#B83232',bg:'#FDEAEA',tc:'#8A2020',lb:'动物园'},
-  '商场':      {c:'#888',   bg:'#E8E6DF',tc:'#4A4844',lb:'商场'},
-  '儿童剧':    {c:'#C2399A',bg:'#FCE8F5',tc:'#8A1A6E',lb:'儿童剧'},
+  '室外游乐园':{c:'#2A7A5A',bg:'#EBF5EF',tc:'#1A5C3E',lb:'室外',  lb_en:'Outdoor'},
+  '室内游乐园':{c:'#2563A8',bg:'#EBF2FB',tc:'#1A4A8A',lb:'室内',  lb_en:'Indoor'},
+  '吃饭':      {c:'#B85C00',bg:'#FEF3E2',tc:'#8A4200',lb:'餐厅',  lb_en:'Food'},
+  '博物馆':    {c:'#6B3FA0',bg:'#F3EEFB',tc:'#4A2878',lb:'博物馆',lb_en:'Museum'},
+  '书店':      {c:'#1A7A6E',bg:'#E8F5F3',tc:'#115A52',lb:'书店',  lb_en:'Bookstore'},
+  '动物园':    {c:'#B83232',bg:'#FDEAEA',tc:'#8A2020',lb:'动物园',lb_en:'Zoo'},
+  '商场':      {c:'#888',   bg:'#E8E6DF',tc:'#4A4844',lb:'商场',  lb_en:'Mall'},
+  '儿童剧':    {c:'#C2399A',bg:'#FCE8F5',tc:'#8A1A6E',lb:'儿童剧',lb_en:'Theater'},
+  '主题公园':  {c:'#D4760A',bg:'#FEF0DC',tc:'#8A4A00',lb:'主题公园',lb_en:'Theme Park'},
+  '海滩':      {c:'#0A8AB8',bg:'#E0F3FC',tc:'#085A7A',lb:'海滩',  lb_en:'Beach'},
 };
-function cm(cat){return CM[cat]||{c:'#888',bg:'#eee',tc:'#444',lb:cat};}
+function cm(cat){return CM[cat]||{c:'#888',bg:'#eee',tc:'#444',lb:cat,lb_en:cat};}
+
+// ── 双语文案 ──────────────────────────────────────────
+const I18N = {
+  zh:{
+    logo:'带娃出行指南', loading:'加载中...', all:'全部',
+    count: n=>`共 ${n} 个地点`, empty:'暂无数据',
+    nav:'导航前往 →', suitable:'适合',
+  },
+  en:{
+    logo:"Kids Travel Guide", loading:'Loading...', all:'All',
+    count: n=>`${n} places`, empty:'No results',
+    nav:'Get Directions →', suitable:'Ages',
+  }
+};
 
 // ── 状态 ──────────────────────────────────────────────
-const DB = {}; // { 城市名: [{name,cat,lat,lng,note,age,link}, ...] }
+const DB = {};
 let city = CITY_CONFIG[0].name;
 let filt = '全部';
 let sel  = null;
 let mks  = [];
+let lang = 'zh'; // 'zh' | 'en'
+
+function t(key){ return I18N[lang][key]; }
+function catLabel(cat){ return lang==='zh' ? cm(cat).lb : cm(cat).lb_en; }
+
+// ── 语言切换 ──────────────────────────────────────────
+function toggleLang(){
+  lang = lang==='zh' ? 'en' : 'zh';
+  document.getElementById('langBtn').textContent = lang==='zh' ? 'English' : '中文';
+  document.getElementById('logo-text').textContent = t('logo');
+  document.documentElement.lang = lang==='zh'?'zh-CN':'en';
+  rCities(); rChips(); rLegend(); rMarkers(); rList();
+}
 
 // ── 地图 ──────────────────────────────────────────────
 const map = L.map('map');
@@ -143,9 +182,7 @@ function parseCSV(text){
   if(lines.length < 2) return [];
   const headers = lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
   return lines.slice(1).map(line=>{
-    // 处理带引号的字段
-    const cols = [];
-    let cur='', inQ=false;
+    const cols=[];let cur='',inQ=false;
     for(let i=0;i<line.length;i++){
       if(line[i]==='"'){inQ=!inQ;}
       else if(line[i]===','&&!inQ){cols.push(cur);cur='';}
@@ -159,70 +196,78 @@ function parseCSV(text){
 }
 
 function csvRowToPlace(row){
-  const name = row['名字']||row['name']||'';
-  const cat  = row['分类']||row['category']||'';
-  const lat  = parseFloat(row['纬度']||row['lat']||0);
-  const lng  = parseFloat(row['经度']||row['lng']||0);
-  const note = row['note']||row['备注']||'';
-  const age  = row['年龄段']||row['age']||'';
-  const link = row['link']||'';
+  const name    = row['名字']||row['name']||'';
+  const name_en = row['name_en']||'';
+  const cat     = row['分类']||row['category']||'';
+  const lat     = parseFloat(row['纬度']||row['lat']||0);
+  const lng     = parseFloat(row['经度']||row['lng']||0);
+  const note    = row['note']||row['备注']||'';
+  const note_en = row['note_en']||'';
+  const age     = row['年龄段']||row['age']||'';
+  const link    = row['link']||'';
   if(!name||!lat||!lng) return null;
-  return {name,cat,lat,lng,note,age,link};
+  return {name,name_en,cat,lat,lng,note,note_en,age,link};
 }
 
 // ── 数据加载 ──────────────────────────────────────────
 async function loadCity(cfg){
-  if(DB[cfg.name]) return; // 已缓存
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${cfg.gid}`;
+  if(DB[cfg.name]) return;
+  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${cfg.gid}`;
   try{
-    const res = await fetch(url);
-    const text = await res.text();
-    const rows = parseCSV(text);
-    DB[cfg.name] = rows.map(csvRowToPlace).filter(Boolean);
+    const res=await fetch(url);
+    const text=await res.text();
+    DB[cfg.name]=parseCSV(text).map(csvRowToPlace).filter(Boolean);
   }catch(e){
-    console.error('加载失败',cfg.name,e);
-    DB[cfg.name] = [];
+    console.error('load failed',cfg.name,e);
+    DB[cfg.name]=[];
   }
 }
 
 // ── 渲染 ──────────────────────────────────────────────
 function fp(){
-  return (DB[city]||[])
-    .map((p,i)=>({...p,oi:i}))
-    .filter(p=>filt==='全部'||p.cat===filt);
+  return (DB[city]||[]).map((p,i)=>({...p,oi:i}))
+    .filter(p=>filt==='全部'||filt==='All'||p.cat===filt);
 }
 function ucats(){return[...new Set((DB[city]||[]).map(p=>p.cat))].filter(Boolean);}
 
+function pName(p){ return (lang==='en'&&p.name_en) ? p.name_en : p.name; }
+function pNote(p){ return (lang==='en'&&p.note_en) ? p.note_en : p.note; }
+
 function rCities(){
   document.getElementById('cr').innerHTML=
-    CITY_CONFIG.map(c=>`<button class="cbtn${c.name===city?' active':''}" onclick="swCity('${c.name}')">${c.name}</button>`).join('');
+    CITY_CONFIG.map(c=>{
+      const label = lang==='en' ? c.name_en : c.name;
+      return `<button class="cbtn${c.name===city?' active':''}" onclick="swCity('${c.name}')">${label}</button>`;
+    }).join('');
 }
 function rChips(){
   const cs=ucats();
-  const allOn=filt==='全部';
-  let h=`<button class="chip" style="${allOn?`background:var(--green);color:#fff;border-color:var(--green)`:''}" onclick="setF('全部')">全部</button>`;
+  const allOn=filt==='全部'||filt==='All';
+  const allLabel=t('all');
+  let h=`<button class="chip" style="${allOn?`background:var(--green);color:#fff;border-color:var(--green)`:''}" onclick="setF('${allLabel}')">${allLabel}</button>`;
   h+=cs.map(c=>{const m=cm(c),on=filt===c;
-    return `<button class="chip" style="${on?`background:${m.bg};color:${m.tc};border-color:${m.c}`:''}" onclick="setF('${c}')">${m.lb}</button>`;
+    return `<button class="chip" style="${on?`background:${m.bg};color:${m.tc};border-color:${m.c}`:''}" onclick="setF('${c}')">${catLabel(c)}</button>`;
   }).join('');
   document.getElementById('chips').innerHTML=h;
 }
 function rLegend(){
   document.getElementById('lgd').innerHTML=ucats().map(c=>{
-    const m=cm(c);return `<div class="lr"><div class="ld" style="background:${m.c}"></div>${m.lb}</div>`;}).join('');
+    const m=cm(c);
+    return `<div class="lr"><div class="ld" style="background:${m.c}"></div>${catLabel(c)}</div>`;
+  }).join('');
 }
 function rMarkers(){
   mks.forEach(m=>m.m.remove());mks=[];
   fp().forEach(p=>{
     const mk=L.marker([p.lat,p.lng],{icon:mkIcon(p.cat)}).addTo(map);
-    let metaHtml='';
-    if(p.age) metaHtml+=`适合 ${p.age}　`;
     const navUrl=p.link||`https://maps.google.com/?q=${p.lat},${p.lng}`;
+    const ageLine=p.age?`<div class="pu-meta">${t('suitable')}: ${p.age}</div>`:'';
+    const noteLine=pNote(p)?`<div class="pu-note">${pNote(p)}</div>`:'';
     mk.bindPopup(`<div class="pu">
-      <div class="pu-name">${p.name}</div>
-      <div class="pu-cat">${p.cat}</div>
-      ${metaHtml?`<div class="pu-meta">${metaHtml}</div>`:''}
-      ${p.note?`<div class="pu-note">${p.note}</div>`:''}
-      <a class="pu-nav" href="${navUrl}" target="_blank">导航前往 →</a>
+      <div class="pu-name">${pName(p)}</div>
+      <div class="pu-cat">${catLabel(p.cat)}</div>
+      ${ageLine}${noteLine}
+      <a class="pu-nav" href="${navUrl}" target="_blank">${t('nav')}</a>
     </div>`,{maxWidth:220});
     mk.on('click',()=>pick(p.oi));
     mks.push({m:mk,oi:p.oi});
@@ -230,18 +275,17 @@ function rMarkers(){
 }
 function rList(){
   const f=fp();
-  document.getElementById('cnt').textContent=`共 ${f.length} 个地点`;
+  document.getElementById('cnt').textContent=t('count')(f.length);
   document.getElementById('lst').innerHTML=f.length===0
-    ? `<div class="loading"><span>暂无数据</span></div>`
-    : f.map((p,fi)=>{
-        const m=cm(p.cat),isSel=p.oi===sel;
-        const meta=[p.age].filter(Boolean).join(' · ');
-        return `<div class="itm${isSel?' sel':''}" onclick="pick(${p.oi})" data-fi="${fi}">
-          <div class="itop"><span class="iname">${p.name}</span>
-          <span class="tag" style="background:${m.bg};color:${m.tc}">${m.lb}</span></div>
-          ${meta?`<div class="imeta">${meta}</div>`:''}
-        </div>`;
-      }).join('');
+    ?`<div class="loading"><span>${t('empty')}</span></div>`
+    :f.map((p,fi)=>{
+      const m=cm(p.cat),isSel=p.oi===sel;
+      return `<div class="itm${isSel?' sel':''}" onclick="pick(${p.oi})" data-fi="${fi}">
+        <div class="itop"><span class="iname">${pName(p)}</span>
+        <span class="tag" style="background:${m.bg};color:${m.tc}">${catLabel(p.cat)}</span></div>
+        ${p.age?`<div class="imeta">${t('suitable')}: ${p.age}</div>`:''}
+      </div>`;
+    }).join('');
 }
 
 function pick(oi){
@@ -254,19 +298,22 @@ function pick(oi){
   const items=document.querySelectorAll('.itm');
   if(fi>=0&&items[fi])items[fi].scrollIntoView({behavior:'smooth',block:'nearest'});
 }
-function setF(f){filt=f;sel=null;rChips();rMarkers();rList();}
+
+function setF(f){
+  filt=f==='All'||f==='全部' ? (lang==='zh'?'全部':'All') : f;
+  sel=null;rChips();rMarkers();rList();
+}
 
 async function swCity(c){
-  city=c;filt='全部';sel=null;
+  city=c;filt=lang==='zh'?'全部':'All';sel=null;
   rCities();
-  document.getElementById('lst').innerHTML='<div class="loading"><div class="spinner"></div><span>加载中...</span></div>';
+  document.getElementById('lst').innerHTML=`<div class="loading"><div class="spinner"></div><span>${t('loading')}</span></div>`;
   const cfg=CITY_CONFIG.find(x=>x.name===c);
   map.setView(cfg.center,cfg.zoom,{animate:true});
   await loadCity(cfg);
   rChips();rLegend();rMarkers();rList();
 }
 
-// ── 启动 ──────────────────────────────────────────────
 async function init(){
   const cfg=CITY_CONFIG[0];
   map.setView(cfg.center,cfg.zoom);

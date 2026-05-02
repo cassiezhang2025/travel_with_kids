@@ -301,7 +301,11 @@ function pick(oi){
 
 function setF(f){
   filt=f;
-  sel=null;rChips();rMarkers();rList();
+  sel=null;
+  // 回到城市全览视角
+  const cfg=CITY_CONFIG.find(x=>x.name===city);
+  if(cfg) map.setView(cfg.center,cfg.zoom,{animate:true});
+  rChips();rMarkers();rList();
 }
 
 async function swCity(c){

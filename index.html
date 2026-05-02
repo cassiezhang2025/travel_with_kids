@@ -146,7 +146,7 @@ const I18N = {
 // ── 状态 ──────────────────────────────────────────────
 const DB = {};
 let city = CITY_CONFIG[0].name;
-let filt = '全部';
+let filt = 'all'; // always use 'all' internally, never language-specific string
 let sel  = null;
 let mks  = [];
 let lang = 'zh'; // 'zh' | 'en'
@@ -226,7 +226,7 @@ async function loadCity(cfg){
 // ── 渲染 ──────────────────────────────────────────────
 function fp(){
   return (DB[city]||[]).map((p,i)=>({...p,oi:i}))
-    .filter(p=>filt==='全部'||filt==='All'||p.cat===filt);
+    .filter(p=>filt==='all'||p.cat===filt);
 }
 function ucats(){return[...new Set((DB[city]||[]).map(p=>p.cat))].filter(Boolean);}
 
@@ -242,9 +242,9 @@ function rCities(){
 }
 function rChips(){
   const cs=ucats();
-  const allOn=filt==='全部'||filt==='All';
+  const allOn=filt==='all';
   const allLabel=t('all');
-  let h=`<button class="chip" style="${allOn?`background:var(--green);color:#fff;border-color:var(--green)`:''}" onclick="setF('${allLabel}')">${allLabel}</button>`;
+  let h=`<button class="chip" style="${allOn?`background:var(--green);color:#fff;border-color:var(--green)`:''}" onclick="setF('all')">${allLabel}</button>`;
   h+=cs.map(c=>{const m=cm(c),on=filt===c;
     return `<button class="chip" style="${on?`background:${m.bg};color:${m.tc};border-color:${m.c}`:''}" onclick="setF('${c}')">${catLabel(c)}</button>`;
   }).join('');
@@ -300,12 +300,12 @@ function pick(oi){
 }
 
 function setF(f){
-  filt=f==='All'||f==='全部' ? (lang==='zh'?'全部':'All') : f;
+  filt=f;
   sel=null;rChips();rMarkers();rList();
 }
 
 async function swCity(c){
-  city=c;filt=lang==='zh'?'全部':'All';sel=null;
+  city=c;filt='all';sel=null;
   rCities();
   document.getElementById('lst').innerHTML=`<div class="loading"><div class="spinner"></div><span>${t('loading')}</span></div>`;
   const cfg=CITY_CONFIG.find(x=>x.name===c);
